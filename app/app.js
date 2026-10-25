@@ -865,7 +865,10 @@
   function watchWeather() {
     if (!CONFIG.companionHost || CONFIG.weatherLat === null || CONFIG.weatherLat === '' ||
         CONFIG.weatherLon === null || CONFIG.weatherLon === '') return;
-    var url = 'http://' + CONFIG.companionHost + ':9999/weather';
+    // Keep the location in config.js as the single source of truth.  The companion
+    // service validates these values before asking Open-Meteo for the forecast.
+    var url = 'http://' + CONFIG.companionHost + ':9999/weather?lat=' +
+      encodeURIComponent(CONFIG.weatherLat) + '&lon=' + encodeURIComponent(CONFIG.weatherLon);
 
     function poll() {
       var xhr = new XMLHttpRequest();

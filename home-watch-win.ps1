@@ -33,10 +33,14 @@ if ($ActionOrHost -in @("uninstall", "stop", "status", "run", "start")) {
 function Find-Python {
     if (Test-Path "venv\Scripts\python.exe") {
         return (Resolve-Path "venv\Scripts\python.exe").Path
-    } elseif (Get-Command py -ErrorAction SilentlyContinue) {
-        return "py"
-    } elseif (Get-Command python -ErrorAction SilentlyContinue) {
-        return "python"
+    }
+    $py = Get-Command py -ErrorAction SilentlyContinue
+    if ($py) {
+        return $py.Source
+    }
+    $python = Get-Command python -ErrorAction SilentlyContinue
+    if ($python) {
+        return $python.Source
     }
     return $null
 }
@@ -104,8 +108,13 @@ if (-not $python) {
 & $python -c "import websockets" 2>$null
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Installing websockets..." -ForegroundColor Cyan
-    $pip = if (Test-Path "venv\Scripts\pip.exe") { "venv\Scripts\pip.exe" } else { "pip" }
-    & $pip install websockets
+    # Installing through the chosen interpreter avoids a global pip targeting a
+    # different Python installation than the one that runs the watcher.
+    & $python -m pip install websockets
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Could not install websockets for $python."
+        exit $LASTEXITCODE
+    }
 }
 
 if (-not $TvHost) {
@@ -123,7 +132,7 @@ if ($action -eq "run") {
 # Action: start / install
 Stop-WatcherProcess
 
-$pythonPath = (Resolve-Path $python).Path
+$pythonPath = $python
 $repoDir = (Resolve-Path ".").Path
 
 # Create persistent startup script in Windows Startup folder (runs silently at login)

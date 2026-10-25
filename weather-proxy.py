@@ -14,13 +14,14 @@ import sys
 import time
 import threading
 import urllib.request
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-LAT = float(sys.argv[1]) if len(sys.argv) > 1 else float(os.environ.get("WEATHER_LAT", 19.076))
-LON = float(sys.argv[2]) if len(sys.argv) > 2 else float(os.environ.get("WEATHER_LON", 72.877))
+DEFAULT_LAT = float(sys.argv[1]) if len(sys.argv) > 1 else float(os.environ.get("WEATHER_LAT", 19.076))
+DEFAULT_LON = float(sys.argv[2]) if len(sys.argv) > 2 else float(os.environ.get("WEATHER_LON", 72.877))
 PORT = int(os.environ.get("WEATHER_PORT", 9999))
 CACHE_TTL = 900   # seconds (15 min)
 
@@ -39,14 +40,14 @@ WMO = {
 # ---------------------------------------------------------------------------
 # Fetching
 # ---------------------------------------------------------------------------
-_cache = {"data": None, "ts": 0}
+_cache = {}
 _lock = threading.Lock()
 
 
-def fetch_weather():
+def fetch_weather(lat, lon):
     url = (
         f"https://api.open-meteo.com/v1/forecast"
-        f"?latitude={LAT}&longitude={LON}"
+        f"?latitude={lat}&longitude={lon}"
         f"&current=temperature_2m,weathercode&timezone=auto"
     )
     try:
@@ -65,15 +66,35 @@ def fetch_weather():
         return None
 
 
-def get_weather():
+def get_weather(lat, lon):
+    key = (lat, lon)
     with _lock:
         now = time.time()
-        if _cache["data"] is None or now - _cache["ts"] > CACHE_TTL:
-            data = fetch_weather()
+        cached = _cache.get(key)
+        if cached is None or now - cached["ts"] > CACHE_TTL:
+            data = fetch_weather(lat, lon)
             if data:
-                _cache["data"] = data
-                _cache["ts"] = now
-        return _cache["data"]
+                cached = {"data": data, "ts": now}
+                _cache[key] = cached
+        return cached["data"] if cached else None
+
+
+def weather_coordinates(path):
+    """Return validated coordinates, with environment/CLI values as a fallback."""
+    query = urllib.parse.parse_qs(urllib.parse.urlparse(path).query)
+    lat_text = query.get("lat", [None])[0]
+    lon_text = query.get("lon", [None])[0]
+    if lat_text is None and lon_text is None:
+        return DEFAULT_LAT, DEFAULT_LON
+    if lat_text is None or lon_text is None:
+        return None
+    try:
+        lat, lon = float(lat_text), float(lon_text)
+    except (TypeError, ValueError):
+        return None
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        return None
+    return lat, lon
 
 
 # ---------------------------------------------------------------------------
@@ -84,11 +105,18 @@ class Handler(BaseHTTPRequestHandler):
         pass   # suppress access log noise
 
     def do_GET(self):
-        if self.path != "/weather":
+        if urllib.parse.urlparse(self.path).path != "/weather":
             self.send_response(404)
             self.end_headers()
             return
-        data = get_weather()
+        coordinates = weather_coordinates(self.path)
+        if coordinates is None:
+            self.send_response(400)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"error":"valid lat and lon are required"}')
+            return
+        data = get_weather(*coordinates)
         if data is None:
             self.send_response(503)
             self.end_headers()
@@ -108,9 +136,9 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    print(f"Weather proxy on http://0.0.0.0:{PORT}/weather  (lat={LAT}, lon={LON})")
+    print(f"Weather proxy on http://0.0.0.0:{PORT}/weather  (default lat={DEFAULT_LAT}, lon={DEFAULT_LON})")
     # Pre-warm the cache
-    threading.Thread(target=get_weather, daemon=True).start()
+    threading.Thread(target=get_weather, args=(DEFAULT_LAT, DEFAULT_LON), daemon=True).start()
     server = HTTPServer(("0.0.0.0", PORT), Handler)
     try:
         server.serve_forever()

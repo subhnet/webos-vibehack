@@ -34,12 +34,12 @@ window.CONFIG = {
   // ── Companion PC ────────────────────────────────────────────────────────────────────
   // Local IP of the PC running home-watch.py. Used for weather proxy and notifications.
   // Set to '' to disable both weather and notifications.
-  companionHost: '192.168.0.100',
+  companionHost: '172.28.176.1',
 
   // ── Weather ─────────────────────────────────────────────────────────────────────────
   // Latitude / longitude for Open-Meteo (free, no API key). Set both or leave null to disable.
-  weatherLat: 19.076,
-  weatherLon: 72.877,
+  weatherLat: 12.9716,
+  weatherLon: 77.5946,
 
   // ── Sleep Timer ─────────────────────────────────────────────────────────────────────
   // Minute options shown in the sleep-timer overlay (press Green / color key).

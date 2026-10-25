@@ -101,6 +101,11 @@ appears, opens the launcher on top.
 ```
 The log is saved at `%LOCALAPPDATA%\tv-vibehack-home-watch.log`.
 
+The Windows helper also starts the local weather service. Set `companionHost` to
+the Windows PC's LAN IP in [`app/config.js`](app/config.js); the service uses
+the `weatherLat` and `weatherLon` configured there. Re-run `install.ps1` after
+changing the configuration.
+
 **On macOS**:
 ```bash
 TV_HOST=192.168.0.110 ./home-watch-mac.sh       # install or update
