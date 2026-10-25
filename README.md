@@ -25,8 +25,8 @@ keep working, and deleting the Developer Mode app removes everything.
 
 ## Setup
 
-You need a Mac on the same Wi-Fi as the TV, with Node.js (for LG's `ares` CLI, fetched with `npx`)
-and Python 3. The steps are macOS only for now: `install.sh` makes the app icon with `sips`.
+You need a computer (Windows, macOS, or Linux) on the same Wi-Fi as the TV, with Node.js
+(for LG's `ares` CLI, fetched automatically with `npx`) and Python 3.
 
 **1. Developer Mode on the TV**
 
@@ -37,25 +37,43 @@ and Python 3. The steps are macOS only for now: `install.sh` makes the app icon 
 
 **2. Connect your computer** (once)
 
-```bash
-export TV_HOST=192.168.1.50                       # the IP from the Developer Mode app
-npx -y -p @webos-tools/cli ares-setup-device -a lgtv -i "{'host':'$TV_HOST','port':'9922','username':'prisoner'}"
+On Windows (PowerShell):
+```powershell
+$env:TV_HOST = "192.168.0.110"                       # the IP from the Developer Mode app
+npx -y -p @webos-tools/cli ares-setup-device -a lgtv -i "host=$env:TV_HOST" -i "port=9922" -i "username=prisoner"
 npx -y -p @webos-tools/cli ares-novacom --device lgtv --getkey        # type the passphrase
-npx -y -p @webos-tools/cli ares-setup-device -m lgtv -i "{'privatekey':'lgtv_webos','passphrase':'ABC123'}"
+npx -y -p @webos-tools/cli ares-setup-device -m lgtv -i "privatekey=lgtv_webos" -i "passphrase=BE6810"
+```
+
+On macOS / Linux (bash):
+```bash
+export TV_HOST=192.168.0.110                       # the IP from the Developer Mode app
+npx -y -p @webos-tools/cli ares-setup-device -a lgtv -i "host=$TV_HOST" -i "port=9922" -i "username=prisoner"
+npx -y -p @webos-tools/cli ares-novacom --device lgtv --getkey        # type the passphrase
+npx -y -p @webos-tools/cli ares-setup-device -m lgtv -i "privatekey=lgtv_webos" -i "passphrase=BE6810"
 ```
 
 **3. Install**
 
+On Windows (PowerShell):
+```powershell
+git clone https://github.com/subhnet/webos-vibehack.git
+cd webos-vibehack
+py -m venv venv; .\venv\Scripts\pip install websockets pillow
+.\install.ps1 -TvHost 192.168.0.110
+```
+
+On macOS / Linux (bash):
 ```bash
-git clone https://github.com/OmkarK97/webos-vibehack.git
+git clone https://github.com/subhnet/webos-vibehack.git
 cd webos-vibehack
 python3 -m venv venv && venv/bin/pip install websockets
-TV_HOST=192.168.1.50 ./install.sh
+TV_HOST=192.168.0.110 ./install.sh
 ```
 
 The first run shows an "allow this device?" prompt on the TV: accept it. That pairing lets
-`sync-apps.py` read your apps and icons. `install.sh` then packages the app, installs it and opens
-it. Run it again whenever you install or remove apps on the TV.
+`sync-apps.py` read your apps and icons. `install.ps1` (or `install.sh`) then packages the app,
+installs it and opens it. Run it again whenever you install or remove apps on the TV.
 
 **4. A one-press shortcut**
 
@@ -73,18 +91,30 @@ appears, opens the launcher on top.
 - When the TV powers on to LG's home, it goes to the launcher too.
 - When the watcher isn't running, Home simply opens LG's home as usual.
 
-On a Mac, install it as a background service that starts at login:
+### Running the watcher
 
-```bash
-TV_HOST=192.168.1.50 ./home-watch-mac.sh       # install or update
-./home-watch-mac.sh uninstall                  # remove
+**On Windows** (PowerShell):
+```powershell
+.\home-watch-win.ps1 192.168.0.110       # install or update (auto-starts at login)
+.\home-watch-win.ps1 status              # check status and view recent logs
+.\home-watch-win.ps1 uninstall           # remove
 ```
+The log is saved at `%LOCALAPPDATA%\tv-vibehack-home-watch.log`.
 
+**On macOS**:
+```bash
+TV_HOST=192.168.0.110 ./home-watch-mac.sh       # install or update
+./home-watch-mac.sh uninstall                   # remove
+```
 macOS will ask for Local Network access for Python: allow it (System Settings → Privacy & Security →
 Local Network), or the watcher logs "No route to host". The log is at
-`~/Library/Logs/tv-vibehack-home-watch.log`. A Mac only redirects Home while it's awake and at
-home; for every time, run `python3 home-watch.py 192.168.1.50` on something that's always on, such
-as a Raspberry Pi.
+`~/Library/Logs/tv-vibehack-home-watch.log`.
+
+**On Linux / Raspberry Pi**:
+Run it on anything that's always on:
+```bash
+python3 home-watch.py 192.168.0.110
+```
 
 ## Using it
 
@@ -97,7 +127,10 @@ and Settings at the top. The header slides away when the grid scrolls into it.
 saved on the TV.
 
 **Configure** in [`app/config.js`](app/config.js): the starting dock, apps to hide, the Live TV
-app and the number of columns. App ids come from `venv/bin/python sync-apps.py $TV_HOST --list`.
+app and the number of columns. App ids come from:
+- Windows: `.\venv\Scripts\python.exe sync-apps.py $env:TV_HOST --list`
+- macOS / Linux: `venv/bin/python sync-apps.py $TV_HOST --list`
+
 Changing `dockApps` resets an order arranged on the TV.
 
 ## Cleaning up LG's home
@@ -126,12 +159,14 @@ For when you do land on it. Names vary a little by webOS version:
 | File | What it does |
 |---|---|
 | [`app/`](app/) | The launcher: `index.html`, `style.css`, `app.js`, `config.js`, `appinfo.json` |
-| [`install.sh`](install.sh) | Syncs your apps, packages and installs the launcher, and opens it |
+| [`install.ps1`](install.ps1) | Windows PowerShell installer (syncs, packages, installs, launches) |
+| [`install.sh`](install.sh) | macOS/Linux bash installer (syncs, packages, installs, launches) |
 | [`sync-apps.py`](sync-apps.py) | Reads apps, icons and HDMI inputs from the TV into `app/apps.js` and `app/icons/` |
 | [`home-watch.py`](home-watch.py) | Sends the Home button to the launcher |
-| [`home-watch-mac.sh`](home-watch-mac.sh) | Runs the watcher as a macOS background service |
+| [`home-watch-win.ps1`](home-watch-win.ps1) | Runs the watcher as a Windows background service (starts at login) |
+| [`home-watch-mac.sh`](home-watch-mac.sh) | Runs the watcher as a macOS background service (starts at login) |
 | [`lgtv.py`](lgtv.py) | Pairs with and talks to the TV's remote-control service |
-| [`assets/icon.jpg`](assets/icon.jpg) | The app icon, resized to PNG by `install.sh` |
+| [`assets/icon.jpg`](assets/icon.jpg) | The app icon, resized to PNG during installation |
 
 ## Credits
 

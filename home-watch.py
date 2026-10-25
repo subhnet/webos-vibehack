@@ -25,8 +25,25 @@ LG_HOME = "com.webos.app.home"
 ESCAPE_SECONDS = 3.0
 
 
+LOG_FILE = os.environ.get("HOME_WATCH_LOG")
+if not LOG_FILE and sys.platform == "win32":
+    local_app_data = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
+    LOG_FILE = os.path.join(local_app_data, "tv-vibehack-home-watch.log")
+
+
 def log(*args):
-    print(time.strftime("%Y-%m-%d %H:%M:%S"), *args, flush=True)
+    line = time.strftime("%Y-%m-%d %H:%M:%S ") + " ".join(str(a) for a in args)
+    if sys.stdout is not None:
+        try:
+            print(line, flush=True)
+        except OSError:
+            pass
+    if LOG_FILE:
+        try:
+            with open(LOG_FILE, "a", encoding="utf-8") as f:
+                f.write(line + "\n")
+        except OSError:
+            pass
 
 
 async def watch(host):
@@ -63,9 +80,9 @@ async def main(host):
         try:
             await watch(host)
             delay = 5
-        except (OSError, asyncio.TimeoutError, lgtv.websockets.WebSocketException) as e:
+        except Exception as e:
             # TV off, in standby or off the network: keep trying, but back off.
-            log("not connected:", type(e).__name__, e)
+            log("not connected or error:", type(e).__name__, e)
             delay = min(delay * 2, 20)
         await asyncio.sleep(delay)
 
@@ -78,3 +95,6 @@ if __name__ == "__main__":
         asyncio.run(main(host))
     except KeyboardInterrupt:
         pass
+    except Exception as e:
+        import traceback
+        log("fatal error:", traceback.format_exc())
