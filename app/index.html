@@ -19,6 +19,7 @@
       <div id="timeRow">
         <span id="clock"></span><span id="ampm"></span><span class="divider"></span><span id="date"></span>
       </div>
+      <div id="weather" class="hidden"><span id="weatherIcon"></span><span id="weatherTemp"></span></div>
     </div>
     <div id="topButtons">
       <div class="pill" id="btnInputs">
@@ -49,6 +50,65 @@
   <div id="inputsPanel" class="hidden"></div>
 
   <div id="toast"></div>
+
+  <!-- Volume HUD: briefly shown when TV volume changes -->
+  <div id="volumeHud" class="hidden">
+    <svg viewBox="0 0 24 24"><path d=""/></svg>
+    <div id="volBar"><div id="volFill"></div></div>
+    <span id="volNum"></span>
+  </div>
+
+  <!-- Sleep timer: overlay opened by Green key -->
+  <div id="sleepOverlay" class="hidden">
+    <div id="sleepTitle">&#x1F4A4; Sleep Timer</div>
+    <div id="sleepPills"></div>
+  </div>
+
+  <!-- Sleep ring: top-right corner count-down arc when timer is active -->
+  <div id="sleepRing" class="hidden">
+    <svg viewBox="0 0 44 44">
+      <circle cx="22" cy="22" r="18" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="4"/>
+      <circle id="sleepArc" cx="22" cy="22" r="18" fill="none" stroke="#fff" stroke-width="4"
+              stroke-dasharray="113.1" stroke-dashoffset="0" stroke-linecap="round"
+              transform="rotate(-90 22 22)"/>
+    </svg>
+    <span id="sleepRingLabel"></span>
+  </div>
+
+  <!-- Now-Playing bar: slides up from the bottom when a media app was active -->
+  <div id="nowPlaying" class="hidden">
+    <div id="npArt"></div>
+    <div id="npText">
+      <div id="npTitle"></div>
+      <div id="npArtist"></div>
+    </div>
+    <div id="npControls">
+      <button id="npPrev">&#x23EE;</button>
+      <button id="npPlay">&#x25B6;</button>
+      <button id="npNext">&#x23ED;</button>
+    </div>
+  </div>
+
+  <!-- Quick-Search / Spotlight: Red key -->
+  <div id="searchOverlay" class="hidden">
+    <div id="searchBox">
+      <svg id="searchIcon" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      <input id="searchInput" type="text" placeholder="Search apps…" autocomplete="off"/>
+    </div>
+    <div id="searchResults"></div>
+  </div>
+
+  <!-- Folder expand overlay -->
+  <div id="folderOverlay" class="hidden">
+    <div id="folderTitle"></div>
+    <div id="folderGrid"></div>
+  </div>
+
+  <!-- Screensaver: full-screen overlay when the launcher is idle -->
+  <div id="screensaver">
+    <div id="ssClock"></div>
+    <div id="ssDate2"></div>
+  </div>
 
   <script src="config.js"></script>
   <script src="apps.js"></script>

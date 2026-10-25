@@ -10,6 +10,10 @@ Press Home twice within ESCAPE_SECONDS to stay on LG's home (for its menus).
 
     python3 home-watch.py 192.168.1.50
 
+Also runs:
+  - A notification WebSocket server on port 9998 (send toasts to the launcher).
+  - Media-app tracking that pushes a 'Now Playing' event when you return to the launcher.
+
 Needs: pip install websockets. Pair once first (sync-apps.py does it).
 """
 import asyncio
@@ -23,6 +27,52 @@ import lgtv
 LAUNCHER = "com.gathin.tvhome"
 LG_HOME = "com.webos.app.home"
 ESCAPE_SECONDS = 3.0
+NOTIFICATION_PORT = int(os.environ.get("NOTIFICATION_PORT", 9998))
+
+# Known streaming/media apps: id → display name
+MEDIA_APPS = {
+    "netflix": "Netflix",
+    "amazon": "Prime Video",
+    "youtube.leanback.v4": "YouTube",
+    "hotstar": "JioHotstar",
+    "com.apple.appletv": "Apple TV",
+    "com.apple.applemusic": "Apple Music",
+    "org.jellyfin.webos": "Jellyfin",
+    "com.webos.app.mediadiscovery": "Media Player",
+}
+
+# ---- notification WebSocket server ---------------------------------------------------------
+
+_notification_clients: set = set()
+
+
+async def _notification_handler(websocket):
+    _notification_clients.add(websocket)
+    try:
+        # Clients such as notify.py send a message; relay it to every other connected client
+        # (the launcher). The launcher itself only listens.
+        async for raw in websocket:
+            try:
+                msg = json.loads(raw)
+            except (ValueError, TypeError):
+                continue
+            if isinstance(msg, dict):
+                await broadcast(msg, exclude=websocket)
+    except Exception:
+        pass
+    finally:
+        _notification_clients.discard(websocket)
+
+
+async def broadcast(payload: dict, exclude=None) -> None:
+    clients = [c for c in list(_notification_clients) if c is not exclude]
+    if not clients:
+        return
+    msg = json.dumps(payload)
+    await asyncio.gather(
+        *[c.send(msg) for c in clients],
+        return_exceptions=True,
+    )
 
 
 LOG_FILE = os.environ.get("HOME_WATCH_LOG")
@@ -50,6 +100,7 @@ async def watch(host):
     ws = await lgtv.session(host, ping_interval=10, ping_timeout=10)
     log("connected to", host)
     last_redirect = 0.0
+    last_media_app = None   # track the most recent streaming app in foreground
     try:
         await ws.send(json.dumps({"type": "subscribe", "id": "fg",
                                   "uri": "ssap://com.webos.applicationManager/getForegroundAppInfo",
@@ -58,7 +109,17 @@ async def watch(host):
             msg = json.loads(raw)
             if msg.get("id") != "fg":
                 continue
-            app = msg.get("payload", {}).get("appId")
+            app = msg.get("payload", {}).get("appId", "")
+
+            # Media-app tracking: when user returns to the launcher, push a media event.
+            if app in MEDIA_APPS:
+                last_media_app = app
+            elif app == LAUNCHER and last_media_app:
+                await broadcast({"type": "media",
+                                 "appId": last_media_app,
+                                 "title": MEDIA_APPS.get(last_media_app, last_media_app)})
+                log("media event: last playing app was", last_media_app)
+
             if app != LG_HOME:
                 continue
             now = time.monotonic()
@@ -74,7 +135,7 @@ async def watch(host):
         await ws.close()
 
 
-async def main(host):
+async def _run_watch(host):
     delay = 5
     while True:
         try:
@@ -85,6 +146,13 @@ async def main(host):
             log("not connected or error:", type(e).__name__, e)
             delay = min(delay * 2, 20)
         await asyncio.sleep(delay)
+
+
+async def main(host):
+    import websockets as _ws
+    async with _ws.serve(_notification_handler, "0.0.0.0", NOTIFICATION_PORT):
+        log(f"notification server on ws://0.0.0.0:{NOTIFICATION_PORT}")
+        await _run_watch(host)
 
 
 if __name__ == "__main__":

@@ -48,8 +48,15 @@ function Get-WatcherProcess {
     }
 }
 
+function Get-WeatherProcess {
+    return Get-CimInstance Win32_Process | Where-Object {
+        ($_.Name -eq "python.exe" -or $_.Name -eq "pythonw.exe") -and
+        $_.CommandLine -like "*weather-proxy.py*"
+    }
+}
+
 function Stop-WatcherProcess {
-    $procs = Get-WatcherProcess
+    $procs = @(Get-WatcherProcess) + @(Get-WeatherProcess)
     foreach ($p in $procs) {
         try {
             Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
@@ -72,6 +79,12 @@ if ($action -eq "status") {
         Write-Host "Home Watcher is RUNNING (PID: $($running.ProcessId -join ', '))." -ForegroundColor Green
     } else {
         Write-Host "Home Watcher is NOT running." -ForegroundColor Yellow
+    }
+    $weather = Get-WeatherProcess
+    if ($weather) {
+        Write-Host "Weather proxy is RUNNING (PID: $($weather.ProcessId -join ', '))." -ForegroundColor Green
+    } else {
+        Write-Host "Weather proxy is NOT running." -ForegroundColor Yellow
     }
     if (Test-Path $LOG_FILE) {
         Write-Host "`nRecent log output ($LOG_FILE):" -ForegroundColor Cyan
@@ -102,6 +115,7 @@ if (-not $TvHost) {
 
 if ($action -eq "run") {
     Write-Host "Running in foreground. Press Ctrl+C to stop." -ForegroundColor Cyan
+    Start-Process -FilePath $python -ArgumentList "weather-proxy.py" -WorkingDirectory $PSScriptRoot -WindowStyle Hidden
     & $python home-watch.py $TvHost
     exit 0
 }
@@ -117,6 +131,7 @@ $vbsContent = @"
 Set WshShell = CreateObject("WScript.Shell")
 WshShell.CurrentDirectory = "$repoDir"
 WshShell.Run """$pythonPath"" home-watch.py $TvHost", 0, False
+WshShell.Run """$pythonPath"" weather-proxy.py", 0, False
 "@
 Set-Content -Path $STARTUP_SCRIPT -Value $vbsContent -Encoding ASCII
 
@@ -127,6 +142,10 @@ Start-Sleep -Seconds 3
 $running = Get-WatcherProcess
 if ($running) {
     Write-Host "Running in background (PID: $($running.ProcessId -join ', ')). Press Home on the remote." -ForegroundColor Green
+    $weather = Get-WeatherProcess
+    if (-not $weather) {
+        Write-Warning "Weather proxy did not start. Check that weather-proxy.py can bind port 9999."
+    }
     Write-Host "Auto-starts at Windows login. Log: $LOG_FILE" -ForegroundColor Cyan
 } else {
     Write-Warning "Started process, but could not detect active watcher. Check log: $LOG_FILE"

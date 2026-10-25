@@ -1,4 +1,4 @@
-// Launcher configuration. Edit this file, then run webos-launcher/install.sh.
+// Launcher configuration. Edit this file, then run install.ps1 / install.sh.
 // App ids: run `python3 sync-apps.py --list` (or look in app/apps.js after a sync).
 window.CONFIG = {
   // Apps pinned to the dock row at the bottom, in this order. Missing apps are skipped.
@@ -17,5 +17,31 @@ window.CONFIG = {
   liveTvApp: 'com.webos.app.livetv',
 
   // Tiles per row in the grid; the dock always has this many slots.
-  columns: 4
+  columns: 4,
+
+  // ── Theme ──────────────────────────────────────────────────────────────────────────
+  // 'black' | 'gradient' | 'time-of-day'
+  theme: 'time-of-day',
+
+  // Seconds of idle on the launcher before the screensaver activates (0 = disabled).
+  screensaverAfter: 300,
+
+  // ── App Folders ─────────────────────────────────────────────────────────────────────
+  // Group apps into folder tiles. Folder member apps are hidden from the main grid.
+  // Example: { name: 'Games', apps: ['com.miniclip.eightballpool', 'com.playworks.app.doodlejump'] }
+  folders: [],
+
+  // ── Companion PC ────────────────────────────────────────────────────────────────────
+  // Local IP of the PC running home-watch.py. Used for weather proxy and notifications.
+  // Set to '' to disable both weather and notifications.
+  companionHost: '192.168.0.100',
+
+  // ── Weather ─────────────────────────────────────────────────────────────────────────
+  // Latitude / longitude for Open-Meteo (free, no API key). Set both or leave null to disable.
+  weatherLat: 19.076,
+  weatherLon: 72.877,
+
+  // ── Sleep Timer ─────────────────────────────────────────────────────────────────────
+  // Minute options shown in the sleep-timer overlay (press Green / color key).
+  sleepTimerOptions: [15, 30, 60, 90],
 };
